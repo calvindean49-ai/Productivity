@@ -20,7 +20,8 @@ final class OutboxQueueTests: XCTestCase {
 
         q.failed(a.id, at: t0.addingTimeInterval(2))
         XCTAssertEqual(q.due(at: t0.addingTimeInterval(2)).map(\.id), [b.id])
-        XCTAssertEqual(q.due(at: t0.addingTimeInterval(2 + 30)).map(\.id), [b.id, a.id])
+        // Both due again; order is by creation time, not by retry time.
+        XCTAssertEqual(q.due(at: t0.addingTimeInterval(2 + 30)).map(\.id), [a.id, b.id])
 
         q.succeeded(b.id)
         XCTAssertEqual(q.items.map(\.id), [a.id])

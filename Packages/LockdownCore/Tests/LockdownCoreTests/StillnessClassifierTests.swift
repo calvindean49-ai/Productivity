@@ -32,9 +32,9 @@ final class StillnessClassifierTests: XCTestCase {
         var c = StillnessClassifier(config: config)
         for i in 0..<40 { _ = c.ingest(sample(t: Double(i) * 0.05, gz: 0.98)) }
         // A hand lifts the phone: acceleration spike and gravity swings.
-        let p = c.ingest(sample(t: 2.0, gz: 0.5, ax: 0.4, ay: 0.2))
+        let p = c.ingest(sample(t: 2.0, gz: 0.75, ax: 0.4, ay: 0.2))
         XCTAssertFalse(p.still, "peak acceleration above threshold")
-        XCTAssertTrue(p.faceDown, "hysteresis keeps face-down until gravity drops below exit threshold")
+        XCTAssertTrue(p.faceDown, "0.75 is above the 0.70 exit threshold, so hysteresis keeps face-down")
         let p2 = c.ingest(sample(t: 2.05, gz: 0.3))
         XCTAssertFalse(p2.faceDown)
     }

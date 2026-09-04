@@ -28,6 +28,6 @@ struct LockdownStatusIntent: AppIntent {
             let today = coordinator.departures.filter { Calendar.current.isDateInToday($0.at) }.count
             text = "No session running. \(today) departures today."
         }
-        return .result(value: text, dialog: IntentDialog(stringLiteral: text))
+        return .result(value: text, dialog: IntentDialog("\(text)"))
     }
 }
