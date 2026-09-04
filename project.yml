@@ -1,0 +1,72 @@
+# XcodeGen spec. Run `make gen` (or `xcodegen generate`) on the Mac to produce
+# Lockdown.xcodeproj, which is gitignored. Keep this file as the source of truth.
+name: Lockdown
+options:
+  bundleIdPrefix: com.calvindean
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+
+packages:
+  LockdownCore:
+    path: Packages/LockdownCore
+
+targets:
+  Lockdown:
+    type: application
+    platform: iOS
+    sources:
+      - path: App/Lockdown
+        excludes:
+          - "Info.plist"
+    dependencies:
+      - package: LockdownCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.calvindean.lockdown
+        PRODUCT_NAME: Lockdown
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    info:
+      path: App/Lockdown/Info.plist
+      properties:
+        CFBundleDisplayName: Lockdown
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - audio
+        NSMotionUsageDescription: Lockdown watches whether the phone is lying still and face-down during a session.
+        NSUserNotificationsUsageDescription: Backup alerts if the session guard stops running.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.calvindean.lockdown
+            CFBundleURLSchemes:
+              - lockdown
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        ITSAppUsesNonExemptEncryption: false
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+    scheme:
+      testTargets: []
+      gatherCoverageData: false
+
+schemes:
+  Lockdown:
+    build:
+      targets:
+        Lockdown: all
+    run:
+      config: Debug
+    archive:
+      config: Release
