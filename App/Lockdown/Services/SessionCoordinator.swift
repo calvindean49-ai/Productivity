@@ -48,6 +48,7 @@ final class SessionCoordinator: ObservableObject {
     private var secondsSincePoll: TimeInterval = 0
     private var restored = false
     private var streamingOnly = false   // Calibration: motion without a session
+    private var cancellables: Set<AnyCancellable> = []
 
     init(settings: SettingsStore, departureLog: FileDepartureLog, aether: AetherService,
          motion: MotionService, audio: AudioService, notifications: NotificationService) {
@@ -64,6 +65,10 @@ final class SessionCoordinator: ObservableObject {
         self.state = .idle
         self.keepScreenOn = settings.keepScreenOn
         self.departures = (try? departureLog.all()) ?? []
+        // Views observe the coordinator only; surface Aether status changes through it.
+        aether.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
     }
 
     // MARK: - lifecycle
@@ -74,6 +79,7 @@ final class SessionCoordinator: ObservableObject {
         guard !restored else { return }
         restored = true
         notifications.requestAuthorization()
+        sweepUnsentDepartures()
         guard var saved = settings.loadState(), saved.phase.isActive, let session = saved.session else {
             settings.saveState(.idle)
             return
@@ -94,9 +100,20 @@ final class SessionCoordinator: ObservableObject {
         saved.alarmStartedAt = nil
         saved.appealStartedAt = nil
         saved.appealReturnPhase = nil
+        // A start that was in flight when the process died is unknown; asking
+        // again is safe because Aether answers 409 if it did go through.
+        if saved.session?.aether == .pending { saved.session?.aether = .unlinked }
         state = saved
         execute([.startMotion, .startKeepalive, .persist])
         startTicker()
+    }
+
+    /// Departures the user never answered and that never reached the outbox
+    /// (a kill mid-sheet, a bug) go to Aether with the honest placeholder.
+    private func sweepUnsentDepartures() {
+        for d in departures where d.leftFor == nil && !d.synced && !aether.isQueued(departureId: d.id) {
+            aether.enqueueDeparture(d)
+        }
     }
 
     func scenePhaseChanged(_ phase: ScenePhase) {
@@ -154,7 +171,7 @@ final class SessionCoordinator: ObservableObject {
         d.app = app?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
         try? departureLog.update(d)
         replace(d)
-        aether.enqueueDeparture(d)
+        if !aether.isQueued(departureId: d.id) { aether.enqueueDeparture(d) }
         if pendingDeparture?.id == d.id { pendingDeparture = nil }
         Task { await drainOutbox() }
     }
@@ -194,8 +211,8 @@ final class SessionCoordinator: ObservableObject {
     func dispatch(_ event: SessionEvent) {
         let (next, effects) = reducer.reduce(state, event)
         let changed = next != state
-        state = next
-        if changed || !effects.isEmpty {
+        if changed { state = next }   // avoid re-publishing 20x/s on unchanged posture
+        if !effects.isEmpty {
             execute(effects)
         }
         if case .ending = state.phase {
@@ -231,15 +248,23 @@ final class SessionCoordinator: ObservableObject {
                 departures.append(d)
                 switch d.kind {
                 case .pickup, .earlyExit:
-                    pendingDeparture = d
+                    setPending(d)
                 case .sensorStall, .alarmTimeout, .panic:
                     aether.enqueueDeparture(d)
                 }
-            case .postAetherStart:
+            case .postAetherStart(let session):
                 Task { [weak self] in
                     guard let self else { return }
                     let link = await self.aether.startSitting()
-                    self.dispatch(.aetherLinked(link, at: Date()))
+                    if self.state.session?.id == session.id {
+                        self.dispatch(.aetherLinked(link, at: Date()))
+                    } else if link == .started {
+                        // The phone session ended while the start was in flight.
+                        // Do not leave Aether holding a sitting nobody is doing.
+                        let minutes = Int((Date().timeIntervalSince(session.startedAt) / 60).rounded())
+                        self.aether.enqueueStop(durationMinutes: max(1, minutes))
+                        await self.drainOutbox()
+                    }
                 }
             case .postAetherStop(_, let minutes):
                 aether.enqueueStop(durationMinutes: minutes)
@@ -252,11 +277,9 @@ final class SessionCoordinator: ObservableObject {
                 notifications.post(title: title, body: body)
             case .sessionEnded(let reason):
                 lastEnd = reason
-                // A pickup he never explained still goes to Aether, honestly worded.
-                if let p = pendingDeparture, p.leftFor == nil {
-                    aether.enqueueDeparture(p)
-                }
-                pendingDeparture = nil
+                // `pendingDeparture` is left alone: the sheet stays up over the
+                // home screen so an early exit or last pickup can still be
+                // explained. Skip sends the placeholder.
                 Task { await drainOutbox() }
             }
         }
@@ -340,6 +363,16 @@ final class SessionCoordinator: ObservableObject {
                 replace(d)
             }
         }
+    }
+
+    /// Show one departure at a time. An unanswered one that gets displaced is
+    /// sent with the placeholder rather than lost.
+    private func setPending(_ d: Departure) {
+        if let previous = pendingDeparture, previous.id != d.id, previous.leftFor == nil,
+           !aether.isQueued(departureId: previous.id) {
+            aether.enqueueDeparture(previous)
+        }
+        pendingDeparture = d
     }
 
     private func replace(_ d: Departure) {

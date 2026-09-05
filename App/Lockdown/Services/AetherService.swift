@@ -33,6 +33,8 @@ struct URLSessionTransport: HTTPTransport {
 final class AetherService: ObservableObject {
     @Published private(set) var status: String = "not configured"
     @Published private(set) var resolvedBase: URL?
+    /// Outbox size, published so the UI refreshes without observing the queue.
+    @Published private(set) var pendingCount: Int = 0
 
     var config: LockdownConfig {
         didSet { if config.aetherBaseURLs != oldValue.aetherBaseURLs { resolvedBase = nil } }
@@ -47,6 +49,7 @@ final class AetherService: ObservableObject {
         self.config = config
         self.keychain = keychain
         self.outbox = outbox
+        self.pendingCount = outbox.items.count
     }
 
     var token: String? { keychain.read(tokenAccount) }
@@ -146,21 +149,37 @@ final class AetherService: ObservableObject {
 
     func enqueueDeparture(_ d: Departure, now: Date = Date()) {
         outbox.enqueue(.departure(departureId: d.id, leftFor: d.leftForOrPlaceholder, app: d.app), at: now)
+        pendingCount = outbox.items.count
     }
 
     func enqueueStop(durationMinutes: Int, now: Date = Date()) {
         outbox.enqueue(.stopSitting(durationMinutes: durationMinutes), at: now)
+        pendingCount = outbox.items.count
+    }
+
+    /// True if a post for this departure is already queued.
+    func isQueued(departureId: UUID) -> Bool {
+        outbox.items.contains { item in
+            if case .departure(let id, _, _) = item.payload { return id == departureId }
+            return false
+        }
     }
 
     /// Send what is due. Returns ids of departures Aether accepted so the log
     /// can mark them synced.
     @discardableResult
     func drain(now: Date = Date()) async -> [UUID] {
-        guard !draining else { return [] }
-        let due = outbox.due(at: now)
-        guard !due.isEmpty, let c = await resolveClient() else { return [] }
+        // The flag is set before the first suspension point so two drains
+        // started in the same effect batch cannot both pass the guard.
+        guard !draining, !outbox.due(at: now).isEmpty else { return [] }
         draining = true
-        defer { draining = false }
+        defer {
+            draining = false
+            pendingCount = outbox.items.count
+        }
+        guard let c = await resolveClient() else { return [] }
+        // Re-read after resolving: an item may have been enqueued meanwhile.
+        let due = outbox.due(at: now)
         var synced: [UUID] = []
         for item in due {
             do {

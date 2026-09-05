@@ -52,7 +52,7 @@ struct HomeView: View {
 
                 Section("Aether") {
                     Text(coordinator.aether.status).foregroundStyle(.secondary)
-                    let pending = coordinator.aether.outbox.items.count
+                    let pending = coordinator.aether.pendingCount
                     if pending > 0 {
                         Text("\(pending) item\(pending == 1 ? "" : "s") waiting to send")
                     }

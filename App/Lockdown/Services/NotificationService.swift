@@ -7,6 +7,11 @@ import UserNotifications
 final class NotificationService {
     private let center = UNUserNotificationCenter.current()
     private let prefix = "lockdown.backup."
+    private let maxChecks = 12
+
+    private var knownIdentifiers: [String] {
+        (0..<maxChecks).map { "\(prefix)check.\($0)" } + ["\(prefix)end"]
+    }
 
     func requestAuthorization() {
         center.requestAuthorization(options: [.alert, .sound, .timeSensitive]) { _, _ in }
@@ -17,7 +22,7 @@ final class NotificationService {
         var requests: [UNNotificationRequest] = []
         var t = now.addingTimeInterval(TimeInterval(everyMinutes * 60))
         var i = 0
-        while t < endsAt && i < 12 {
+        while t < endsAt && i < maxChecks {
             requests.append(make(id: "\(prefix)check.\(i)", at: t,
                                  title: "Is Lockdown still guarding?",
                                  body: "If you see this, the guard may have stopped. Open the app."))
@@ -29,11 +34,10 @@ final class NotificationService {
         requests.forEach { center.add($0) }
     }
 
+    /// Identifiers are deterministic, so this is synchronous and cannot race
+    /// with a `scheduleBackups` that follows it.
     func cancelBackups() {
-        center.getPendingNotificationRequests { [center, prefix] pending in
-            let ids = pending.map(\.identifier).filter { $0.hasPrefix(prefix) }
-            center.removePendingNotificationRequests(withIdentifiers: ids)
-        }
+        center.removePendingNotificationRequests(withIdentifiers: knownIdentifiers)
     }
 
     func post(title: String, body: String) {

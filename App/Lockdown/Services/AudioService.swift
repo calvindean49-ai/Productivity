@@ -94,8 +94,12 @@ final class AudioService {
     func previewAlarm(seconds: TimeInterval = 2) {
         playAlarm()
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
-            guard let self, !(self.keepaliveActive) else { return }
-            self.stopAll()
+            guard let self else { return }
+            if self.keepaliveActive {
+                self.stopAlarm()   // streaming or a session owns the audio session; leave it running
+            } else {
+                self.stopAll()
+            }
         }
     }
 

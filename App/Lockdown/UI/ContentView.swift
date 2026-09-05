@@ -20,6 +20,9 @@ struct ContentView: View {
         .onAppear { coordinator.restoreIfNeeded() }
         .sheet(item: $coordinator.pendingDeparture) { departure in
             DepartureSheet(departure: departure)
+                // Swiping the sheet away would drop the departure without ever
+                // sending it; Skip is the way out and it sends the placeholder.
+                .interactiveDismissDisabled()
         }
         .preferredColorScheme(.dark)
     }

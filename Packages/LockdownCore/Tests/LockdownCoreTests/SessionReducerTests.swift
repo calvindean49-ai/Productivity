@@ -214,6 +214,28 @@ final class SessionReducerTests: XCTestCase {
         XCTAssertFalse(fx.contains { if case .postAetherStop = $0 { return true } else { return false } })
     }
 
+    func testAetherEndedWhileArmingEndsToo() {
+        let (arming, _) = run([.startRequested(minutes: 50, origin: .aether, at: at(0))])
+        XCTAssertEqual(arming.phase, .arming)
+        let (s, fx) = run([.aetherSessionEnded(at: at(5))], from: arming)
+        XCTAssertEqual(s.phase, .ending(.aetherStopped))
+        XCTAssertTrue(fx.contains(.stopMotion))
+    }
+
+    func testAlarmTimeoutStillAppliesDuringAppeal() {
+        let g = guardingState()
+        let (appeal, fx1) = run([
+            .posture(anchored: false, at: at(100)),
+            .tick(at: at(102)),
+            .earlyExitRequested(at: at(103)),
+        ], from: g)
+        XCTAssertEqual(appeal.phase, .appeal)
+        XCTAssertFalse(fx1.contains(.stopAlarm), "alarm keeps sounding through the appeal")
+        let (s, fx2) = run([.tick(at: at(102 + config.alarmTimeoutSeconds))], from: appeal)
+        XCTAssertEqual(s.phase, .ending(.alarmTimeout))
+        XCTAssertTrue(fx2.contains(.stopAlarm))
+    }
+
     func testAetherLinkedUpdatesSession() {
         let g = guardingState()
         let (s, _) = run([.aetherLinked(.adopted, at: at(10))], from: g)

@@ -63,7 +63,8 @@ public struct SessionReducer: Sendable {
 
         // MARK: external
 
-        case (.guarding, .aetherSessionEnded(let at)),
+        case (.arming, .aetherSessionEnded(let at)),
+             (.guarding, .aetherSessionEnded(let at)),
              (.alarming, .aetherSessionEnded(let at)),
              (.appeal, .aetherSessionEnded(let at)):
             return end(s, reason: .aetherStopped, at: at, departure: nil)
@@ -151,6 +152,12 @@ public struct SessionReducer: Sendable {
         case .appeal:
             if now >= session.endsAt {
                 return end(s, reason: .timerExpired, at: now, departure: nil)
+            }
+            // The alarm keeps sounding through an appeal entered from `alarming`,
+            // so the timeout guard has to keep counting here too.
+            if let started = state.alarmStartedAt, now.timeIntervalSince(started) >= config.alarmTimeoutSeconds {
+                let dep = departure(state, kind: .alarmTimeout, at: now, duration: now.timeIntervalSince(started))
+                return end(s, reason: .alarmTimeout, at: now, departure: dep)
             }
 
         case .idle, .ending:
