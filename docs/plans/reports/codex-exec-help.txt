@@ -199,3 +199,22 @@ Error: --worktree requires the worktrees feature; enable it with --enable worktr
 # -C <repo> and the repo must be one Codex has trusted (or the run is refused,
 # which is the safe direction). (2) --worktree needs --enable worktrees.
 # Neither trial has yet been run INSIDE a repo; that measurement is still open.
+
+# ---------------------------------------------------------------------------
+# Trial runs, second attempt, 18 Sep 2026 00:1x local
+
+$ cd "$(find ~ -maxdepth 4 -type d -name aether-os -not -path '*/node_modules/*' | head -1)" && pwd
+/Users/calvin_dean0/.config/manicode/projects/aether-os        # NOT the clone: a tool's project-state folder
+$ codex exec -s read-only --ephemeral --json -o /tmp/verdict.md "..."
+Not inside a trusted directory and --skip-git-repo-check was not specified.
+$ codex exec --enable worktrees --worktree -s workspace-write --json -o /tmp/last.md "..."
+Error: git command failed: You have not agreed to the Xcode license agreements. Please run
+'sudo xcodebuild -license' from within a Terminal window to review and agree to the Xcode and Apple SDKs license.
+
+# Read: (1) the folder found was ~/.config/manicode/projects/aether-os, which is a
+# coding tool's state directory, not a git checkout — so the trust refusal is
+# expected and still says nothing about the real repo. (2) Apple's git is refusing
+# EVERY command until the Xcode licence is accepted: this blocks Codex, Claude
+# Code lane workers, and the Runner alike. Precondition, not a Codex fact.
+# (3) `~/.config/manicode` is Codebuff's (formerly Manicode) state dir — the
+# "Freebuff" tool is very likely Codebuff, which has a CLI. Parked, per Calvin.
