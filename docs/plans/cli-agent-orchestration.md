@@ -134,16 +134,22 @@ Three flags in that output settle three design questions:
 Two command shapes, both to be run once by hand before the adapter is written, so the adapter copies a line that worked rather than one that reads well:
 
 ```sh
-# review / read-only: cannot touch the tree; verdict lands in the Brain via -o
+# code review of a branch: the built-in subcommand, read-only by nature, verdict via -o
+codex exec review -C <repo> --base main --ephemeral --json \
+  -o <brain>/runs/<id>.md "<review brief>"
+
+# any other read-only job (a plan, an audit, a maths marking): cannot touch the tree
 codex exec -C <repo> -s read-only --ephemeral --json \
   -o <brain>/runs/<id>.md "<brief>"
 
 # build: edits inside the repo, on a managed worktree (never the checkout), Brain writable for the report
-codex exec -C <repo> --worktree -s workspace-write --json \
+codex exec -C <repo> --enable worktrees --worktree -s workspace-write --json \
   --add-dir <brain> -o <brain>/runs/<id>.last.md "<brief>"
 ```
 
-**Still to measure before the build adapter ships:** (1) what `codex exec` does in `workspace-write` when a command would need approval — the help offers `--approve-for-me` for that and it must be tried, because a run that silently waits for a prompt nobody will answer is the Foreman's first-live-run failure again; (2) `codex exec review --help`, because a built-in review subcommand may replace the read-only brief for code review; (3) `codex --version`, recorded at the top of the help file. **Never** `--dangerously-bypass-approvals-and-sandbox`: the Runner refuses that flag by construction.
+**Measured 17 Sep, codex-cli 0.154.0** (`reports/codex-exec-help.txt`): `codex exec review` exists and takes `--base <branch>`, `--commit <sha>` or `--uncommitted`, so reviewing a worker's branch is one flag and not a prompt. From a directory that is not a git repo, exec refuses: *"Not inside a trusted directory and --skip-git-repo-check was not specified"* — so the Runner always passes `-C <repo>`, and a repo Codex has not been trusted in is refused rather than run, which is the safe direction. `--worktree` refuses without `--enable worktrees`.
+
+**Still to measure before the build adapter ships:** (1) the same two trial commands run **inside** a real repo, because both trials above were run from `~`; (2) what `workspace-write` does when a command would need approval — the help offers `--approve-for-me` and it must be tried, because a run that silently waits for a prompt nobody will answer is the Foreman's first-live-run failure again; (3) whether "trusted directory" is per-repo state that has to be set once interactively (`codex` in the repo, accept the trust prompt) — if so, that is a one-time step per repo and the Desk should say so when a run is refused. **Never** `--dangerously-bypass-approvals-and-sandbox`: the Runner refuses that flag by construction.
 
 **Not in v1:** caps, lanes, claims, scheduling by cron, retries. One run per tool at a time. A second `start` for a busy tool is refused with the running run's id.
 
@@ -173,7 +179,7 @@ The Brain gets `projects/<game>.md` and a `workflows/` file per pipeline; the Ru
 
 | # | Who | Step | Done when |
 |---|---|---|---|
-| 1 | you | ~~`codex exec --help`~~ done 17 Sep. Still: `codex --version`, `codex exec review --help`, and for Freebuff: is there a terminal command? (`claude --help` is not needed; Aether already runs it headless with measured flags.) | I have the real flags. |
+| 1 | you | ~~`codex exec --help`, `--version`, `review --help`~~ done 17 Sep. Still: the two trial runs **inside a repo** (§5.1), and for Freebuff: is there a terminal command? (`claude --help` is not needed; Aether already runs it headless with measured flags.) | I have the real flags and one successful run of each shape. |
 | 2 | session | Seed the Brain: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `INDEX.md`, the folders, `projects/aether-os.md` + `projects/lockdown.md` from the two READMEs, one real `workflows/` file (§4.3), one `learning/maths/map.md` skeleton. | In `second-brain/`, `claude -p "what am I working on"` and `codex exec "what am I working on"` both answer from `INDEX.md`. |
 | 3 | session | Runner v1: `start / status / log / cancel`, stop file, SQLite store, adapters for `claude` and `codex` from step 1's help output, liveness by pid + start time. | A run started with `curl` against `127.0.0.1` writes a `runs/` file into the Brain and pushes; killing the process reads `dead` within one poll. |
 | 4 | session | Desk v1: Brain, Runs, Workflows views; brief box; run-step buttons. | You type a brief in the browser, watch the run, and see its `runs/` file appear after fetch. No curl. |
