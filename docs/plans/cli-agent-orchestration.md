@@ -26,6 +26,13 @@ Draft 1 proposed finishing Aether's Foreman. Calvin ruled that out: *this is its
 - The second brain gets its **own home** (the `second-brain` repo).
 - The **Mac is on all day** except while he sleeps.
 
+**Third message (17 Sep, later)**
+- The OS is called **Agent OS**, in a new repo `agent-os`.
+- **No Freebuff and no Gemini yet.** Team for v1 is Claude Code and Codex.
+- Claude write mode: **yes** — bypass permissions only on a branch, enforced by the adapter.
+- **Same stack as aether-os**: React / Vite / TypeScript, Express, SQLite.
+- Codex trial runs inside a repo: not yet run (the placeholder path was typed literally; see §5.1).
+
 **Facts measured from the repos** (for grounding, not as the plan): Aether's Foreman (`aether-os/src/foreman/`) already drives `claude -p` workers, reads state out of git, stores runs in a local SQLite and polls it from a page — it is Aether-specific and stays Aether's. `calvindean49-ai/second-brain` is an empty repo. Aether's own knowledge lives in SQLite a CLI cannot read; its `pinned_memories` table is constrained so a model cannot write a mastery claim.
 
 ---
@@ -63,7 +70,6 @@ second-brain/
                        What this repo is, how to read it, how to write it,
                        what a workflow file looks like, how to report a run.
   CLAUDE.md            "@AGENTS.md"  (Claude Code imports it)
-  GEMINI.md            same, for Gemini CLI
   INDEX.md             one screen: current focus, projects, next actions. Replaced in place.
   projects/<name>.md   goal · state · next · repo/branch links   (aether-os, lockdown, …)
   learning/maths/      mastery map, what is proven vs practised, next probes
@@ -120,8 +126,7 @@ You type at the Desk: *"plan the Lockdown motion spike and get it reviewed."* Th
 |---|---|---|---|
 | Claude Code | `claude -p "<brief>" --output-format text` with a permission mode you choose per run | edits allowed | in use in Aether today, no key, `env -u` the `ANTHROPIC_*` routing vars |
 | Codex | **measured 17 Sep** (`reports/codex-exec-help.txt`), see §5.1 | `-s read-only` / `-s workspace-write` | reads `AGENTS.md`; ChatGPT login; version not yet recorded |
-| Gemini CLI | `gemini -p "<brief>"` | flag to measure | reads `GEMINI.md`; only if you want a third vendor |
-| Freebuff | **unknown** | unknown | needs Q1 |
+| Gemini CLI, Freebuff | **not in v1** (Calvin, 17 Sep) | — | one adapter file each, later, from their own `--help` |
 
 ### 5.1 The Codex adapter, from the real `--help`
 
@@ -161,7 +166,7 @@ Three views, all read from the Brain's last fetched commit and from the Runner's
 - **Runs** — live table from the Runner (polled every 5 s while visible), log viewer, cancel, stop file switch.
 - **Workflows** — every `workflows/*.md` with a *run step N with <tool>* button, and a brief box that starts a `claude` run with "set up a workflow for: …".
 
-Stack: React/Vite/TS front, Express/SQLite Runner — the stack you already run, so any CLI can build on it. Repo: a new one (name in Q2), **never** the Brain.
+Stack: React/Vite/TS front, Express/SQLite Runner — the stack you already run, so any CLI can build on it (decided 17 Sep). Repo: **`calvindean49-ai/agent-os`**, new, **never** the Brain.
 
 ## 7. Cloud
 
@@ -179,22 +184,33 @@ The Brain gets `projects/<game>.md` and a `workflows/` file per pipeline; the Ru
 
 | # | Who | Step | Done when |
 |---|---|---|---|
-| 1 | you | ~~`codex exec --help`, `--version`, `review --help`~~ done 17 Sep. Still: the two trial runs **inside a repo** (§5.1), and for Freebuff: is there a terminal command? (`claude --help` is not needed; Aether already runs it headless with measured flags.) | I have the real flags and one successful run of each shape. |
-| 2 | session | Seed the Brain: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `INDEX.md`, the folders, `projects/aether-os.md` + `projects/lockdown.md` from the two READMEs, one real `workflows/` file (§4.3), one `learning/maths/map.md` skeleton. | In `second-brain/`, `claude -p "what am I working on"` and `codex exec "what am I working on"` both answer from `INDEX.md`. |
+| 1 | you | ~~`codex exec --help`, `--version`, `review --help`~~ done 17 Sep. Still: the two trial runs **inside a repo** (§5.1). (`claude --help` is not needed; Aether already runs it headless with measured flags.) | I have the real flags and one successful run of each shape. |
+| 2 | session | Seed the Brain: `AGENTS.md`, `CLAUDE.md`, `INDEX.md`, the folders, `projects/aether-os.md` + `projects/lockdown.md` from the two READMEs, one real `workflows/` file (§4.3), one `learning/maths/map.md` skeleton. | In `second-brain/`, `claude -p "what am I working on"` and `codex exec "what am I working on"` both answer from `INDEX.md`. |
 | 3 | session | Runner v1: `start / status / log / cancel`, stop file, SQLite store, adapters for `claude` and `codex` from step 1's help output, liveness by pid + start time. | A run started with `curl` against `127.0.0.1` writes a `runs/` file into the Brain and pushes; killing the process reads `dead` within one poll. |
 | 4 | session | Desk v1: Brain, Runs, Workflows views; brief box; run-step buttons. | You type a brief in the browser, watch the run, and see its `runs/` file appear after fetch. No curl. |
-| 5 | session | Cloud: the *run in cloud* path via a local Claude session; Gemini adapter if you want it; Freebuff adapter if step 1 says it has a CLI. | A cloud session's `runs/` file appears in the Desk. |
+| 5 | session | Cloud: the *run in cloud* path via a local Claude session. | A cloud session's `runs/` file appears in the Desk. |
 | 6 | you | Use it for a week on real work (the Lockdown motion spike, a maths probe). Write what hurt into `inbox/`. | Decide, from that: concurrency, cron, Aether panel. |
 
 Steps 2 and 3 are independent and can run in parallel. Step 4 waits on 3. Step 5 waits on 4.
 
-## 11. Open questions (fewer this time)
+## 11. Decisions taken and what is still open
 
-1. **Freebuff:** does it have a terminal command you can run with a prompt (like `codex exec`)? If it is app-only, it stays a tool *you* use with the Brain open, not one the Runner starts. Please paste `which freebuff` or the name of the app.
-2. **OS repo name:** new repo `agent-os`? Or reuse `Personal-OS` / `Jarvis-os` if either is effectively empty? (I have not read them.)
-3. **Gemini:** in the team or not? It costs one adapter; leave it out unless you have a Google plan you want to use.
-4. **Permission mode for Claude runs:** `acceptEdits` (edits yes, shell asks — but nobody is there to answer, so it fails safe) or `bypassPermissions` (Aether uses this for lane workers, in a worktree). I recommend bypass **only** on a branch, never on main, and the adapter enforces that.
-5. **Stack:** React/Vite/TS + Express/SQLite as above, matching aether-os — yes?
+**Decided by Calvin, 17 Sep:** the OS is `agent-os`, a new repo; Claude Code and Codex only in v1; Claude runs may bypass permissions only on a branch and the adapter enforces it; stack is aether-os's.
+
+**Still open, and the only thing blocking the Codex build adapter:** the two trial runs inside a real repo (§5.1). Everything else in steps 2–4 can start now.
+
+**Claude adapter, for the record.** Two shapes, both already measured in Aether's `scripts/aether-run.sh` and `src/foreman/adapters/`:
+
+```sh
+# read-only (plan, review, marking): no edit tools, no shell
+claude -p "<brief>" --output-format stream-json --permission-mode dontAsk \
+  --permission-prompts none --allowedTools Read,Grep,Glob --disallowedTools Edit,Write,Bash
+
+# build: full write, but only after the adapter has checked out a branch in a worktree
+claude -p "<brief>" --output-format stream-json --permission-mode bypassPermissions
+```
+
+The adapter refuses the second shape unless `git rev-parse --abbrev-ref HEAD` in the run's cwd is not `main`/`master`, and it always runs under `env -u` for the six `ANTHROPIC_*` routing variables so the CLI cannot be routed off Anthropic by a shell profile (Aether hit exactly that on 2 Sep).
 
 ## 12. Persona pass (aether-os review personas as lenses)
 
