@@ -31,7 +31,7 @@
 | A console that contacts Claude Code and starts work | `npm run foreman:dispatch` starts `scripts/aether-run.sh <lane> 1 [unit]`, which runs `claude -p "/aether-run …" --permission-mode bypassPermissions`. Logged-in CLI, no API key (`env -u` strips the six `ANTHROPIC_*` routing vars). | First live run built nothing: expired `claude` login (D-M19). No one-command start (Q23.17). |
 | Claude delegating to a team | The **main agent** (Q23.3, ◐): one Claude Code session takes a goal, `commission`s units with done-criteria, `request`s workers and reviews. It cannot build, rule, claim or close (nine refusals in `scripts/foreman-agent.ts`). Five review personas in `.claude/agents/` (builder, cold-reviewer, risk-assessor, architect, designer). | ◐ on two of its own ⛔s (Q23.13 classifier hole, Q23.14 token readable). |
 | Codex / other CLIs in the team | **Decided 13 Sep (D-M33):** Codex, Gemini, Cursor's agent and Freebuff join **as reviewers first**, one shared slot, promoted to building only by you. Adapter interface exists (`src/foreman/adapters/types.ts`); Cursor and freebuff are `notWired`. | **Parked (Q23.9, D-M57):** none of the four CLIs is installed or signed in on any machine a worker has run on. The row forbids guessing a command line; it must come from the real `--help`. **This is the single biggest blocker and it is a 20-minute job on your Mac.** |
-| Show what is going on | Console at `http://127.0.0.1:5174/foreman.html`: lanes, dispatch, work, ledger, review verdicts (`docs/reviews/<unit>-<pass>.md`), tree stamp. Dead workers detected at read time (Q23.6). | Console **cannot write** — no form to rule/commission/park/set a goal; POST only (Q23.12). No usage display (Q23.18). |
+| Show what is going on | Console at `http://127.0.0.1:5174/foreman.html`: lanes, dispatch, work, ledger, review verdicts (`docs/reviews/<unit>-<pass>.md`), tree stamp. Runs and goals live in a local store, `.aether/foreman.sqlite` (tables `runs`, `goals`, `dispatcher`); the page polls `/api/foreman/dispatch` every 5 s and a run's log every 4 s. Dead workers detected at read time (Q23.6). | Console **cannot write** — no form to rule/commission/park/set a goal; POST only (Q23.12). No usage display (Q23.18). |
 | Cloud + local | Local Mac lanes (`aether-run.sh`, capped per lane). Cloud lanes = five Claude Code Remote routines on a cron, toggled by the `lanes` skill. | Console observes cloud lanes, cannot steer them (Q23.19). |
 | Everything reports back | Git is the bus: `CLAIMS.md`, `state/<lane>.md`, `docs/QUEUE.md`, `docs/reviews/`, `DECISIONS.md`; console reads them **out of `origin/main`** via `git show`. | Works. This is the pattern the second brain should copy. |
 | UI design / 3D | `designer` agent, Higgsfield adapter, `threejs-devtools-mcp` and `unreal-mcp` in `.mcp.json`, `design-taste-frontend` / `image-to-code` skills. | Nothing needed for this plan. |
@@ -118,7 +118,7 @@ second-brain/
 2. `decisions/log.md`, `runs/*` and `inbox/*` are **append-only**.
 3. Every agent commit message starts with the tool name and run id: `codex r-0142: …`.
 4. An agent never deletes a file it did not create in the same run.
-5. Aether reads this repo; it never writes it. (If you want Aether's inbox to flow here, that is a later, separate decision.)
+5. Aether reads this repo; it never writes it. (If you want Aether's inbox to flow here, that is a later, separate decision. Aether's own `pinned_memories` table is deliberately constrained so a model cannot write a mastery claim; the second brain must not become a way round that.)
 
 ### 4.4 "The CLIs can set up workflows when prompted"
 
@@ -145,6 +145,8 @@ In dependency order. Each is an existing or trivially-filed queue row.
 
 **Cross-CLI delegation, concretely (item 2):** you type a goal in the console → main agent (Claude) commissions units into `docs/QUEUE.md` → dispatcher starts a `claude-local` worker on a unit → worker pushes → you (or the main agent) request a review → dispatcher starts `codex exec --sandbox read-only` on a scratch copy with the cold-reviewer brief → Codex writes `docs/reviews/<unit>-codex.md` → console shows it beside Claude's passes. Claude and Codex never talk to each other directly. They read and write the same files. That is the whole protocol, and every piece of it except the Codex command line exists today.
 
+**Not in phase 1, on purpose:** ROUTE.md asks for a persisted run/step/artifact model for Aether's own assistant work. It is unbuilt, and the Foreman's `runs` + `goals` store plus the review files already give you visibility for orchestration. I would not build it for this.
+
 **Codex building, not just reviewing,** is your promotion decision (D-M33 §f), taken after you have seen its review record. I would not pre-plan it.
 
 ---
@@ -166,7 +168,7 @@ Recommendation: cloud = Claude only for now. Codex and Gemini local, as reviewer
 Three options, in order of cost:
 
 - **A. Link.** Aether's HUD gets a "Foreman" button that opens the console. Zero risk, ten minutes, and it honours your 12 Sep "separate from Aether" decision exactly.
-- **B. Read-only glance panel (recommended).** A small Aether panel that renders the dispatcher's run view (running / ended / lost, per lane and tool) and the last five review verdicts, read the way the Foreman reads them. No writes from Aether. The `verify:foreman` wall (product must not import `src/foreman/`) means this is a *server route in the Foreman* that Aether fetches, not a shared import.
+- **B. Read-only glance panel (recommended).** A small Aether panel that renders the dispatcher's run view (running / ended / lost, per lane and tool) and the last five review verdicts. The data already exists behind `GET /api/foreman/dispatch` and `GET /api/foreman/reading`; the panel polls them the way the console does. No writes from Aether. The `verify:foreman` wall (product must not import `src/foreman/`) means Aether *fetches* from the Foreman server, never imports it; and the Foreman's token must not reach the product page, so this needs one read-only, token-less route on `127.0.0.1` or a proxy rule. That is the one real design point in this option.
 - **C. Foreman inside Aether.** Reverses your 12 Sep decision. I would not.
 
 Ask: do you want B (see Q3)?
