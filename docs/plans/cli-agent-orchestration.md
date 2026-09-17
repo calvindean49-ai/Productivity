@@ -119,9 +119,31 @@ You type at the Desk: *"plan the Lockdown motion spike and get it reviewed."* Th
 | Tool | Local headless (to measure on the Mac) | Write access | Notes |
 |---|---|---|---|
 | Claude Code | `claude -p "<brief>" --output-format text` with a permission mode you choose per run | edits allowed | in use in Aether today, no key, `env -u` the `ANTHROPIC_*` routing vars |
-| Codex | `codex exec "<brief>"`, `-C <repo>`; sandbox `read-only` for review, `workspace-write` for building | per sandbox flag | reads `AGENTS.md`; ChatGPT login |
+| Codex | **measured 17 Sep** (`reports/codex-exec-help.txt`), see §5.1 | `-s read-only` / `-s workspace-write` | reads `AGENTS.md`; ChatGPT login; version not yet recorded |
 | Gemini CLI | `gemini -p "<brief>"` | flag to measure | reads `GEMINI.md`; only if you want a third vendor |
 | Freebuff | **unknown** | unknown | needs Q1 |
+
+### 5.1 The Codex adapter, from the real `--help`
+
+Three flags in that output settle three design questions:
+
+- **`--add-dir <DIR>`** makes the Brain writable *alongside* the repo Codex is working in. So a Codex run in the Lockdown repo can write its `runs/` report into the Brain itself. That is the report-back mechanism for building runs, with no glue.
+- **`-o <FILE>`** writes the agent's last message to a file. For a **read-only** run (a review) Codex cannot write the Brain, so the Runner points `-o` at `runs/<id>.md` in the Brain and commits it. The Runner reports on behalf of read-only tools; writing tools report themselves.
+- **`--json`** streams events as JSONL to stdout. The Runner logs that stream and the Desk tails it, which is how "see what is going on" works for Codex. (`claude -p --output-format stream-json` is the equivalent, already used in Aether.)
+
+Two command shapes, both to be run once by hand before the adapter is written, so the adapter copies a line that worked rather than one that reads well:
+
+```sh
+# review / read-only: cannot touch the tree; verdict lands in the Brain via -o
+codex exec -C <repo> -s read-only --ephemeral --json \
+  -o <brain>/runs/<id>.md "<brief>"
+
+# build: edits inside the repo, on a managed worktree (never the checkout), Brain writable for the report
+codex exec -C <repo> --worktree -s workspace-write --json \
+  --add-dir <brain> -o <brain>/runs/<id>.last.md "<brief>"
+```
+
+**Still to measure before the build adapter ships:** (1) what `codex exec` does in `workspace-write` when a command would need approval — the help offers `--approve-for-me` for that and it must be tried, because a run that silently waits for a prompt nobody will answer is the Foreman's first-live-run failure again; (2) `codex exec review --help`, because a built-in review subcommand may replace the read-only brief for code review; (3) `codex --version`, recorded at the top of the help file. **Never** `--dangerously-bypass-approvals-and-sandbox`: the Runner refuses that flag by construction.
 
 **Not in v1:** caps, lanes, claims, scheduling by cron, retries. One run per tool at a time. A second `start` for a busy tool is refused with the running run's id.
 
@@ -151,7 +173,7 @@ The Brain gets `projects/<game>.md` and a `workflows/` file per pipeline; the Ru
 
 | # | Who | Step | Done when |
 |---|---|---|---|
-| 1 | you | On the Mac: `codex exec --help > codex-help.txt`, `claude --help > claude-help.txt`, and for Freebuff: is there a terminal command? Paste all three outputs (or "no CLI") to me. | I have the real flags. |
+| 1 | you | ~~`codex exec --help`~~ done 17 Sep. Still: `codex --version`, `codex exec review --help`, and for Freebuff: is there a terminal command? (`claude --help` is not needed; Aether already runs it headless with measured flags.) | I have the real flags. |
 | 2 | session | Seed the Brain: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `INDEX.md`, the folders, `projects/aether-os.md` + `projects/lockdown.md` from the two READMEs, one real `workflows/` file (§4.3), one `learning/maths/map.md` skeleton. | In `second-brain/`, `claude -p "what am I working on"` and `codex exec "what am I working on"` both answer from `INDEX.md`. |
 | 3 | session | Runner v1: `start / status / log / cancel`, stop file, SQLite store, adapters for `claude` and `codex` from step 1's help output, liveness by pid + start time. | A run started with `curl` against `127.0.0.1` writes a `runs/` file into the Brain and pushes; killing the process reads `dead` within one poll. |
 | 4 | session | Desk v1: Brain, Runs, Workflows views; brief box; run-step buttons. | You type a brief in the browser, watch the run, and see its `runs/` file appear after fetch. No curl. |
