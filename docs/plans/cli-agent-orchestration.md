@@ -1,222 +1,182 @@
-# CLI agent orchestration centre + second brain — plan, draft 1
+# Agent OS — a standalone centre for CLI agents and one second brain
 
-**Date:** 17 September 2026
-**Status:** draft for back-and-forth. Nothing here is decided. Open questions are in §10; answer those and I redraft.
-**Ground truth read for this draft:** `aether-os` at `a63590f` (ROUTE.md, NOW.md, ARCHITECTURE → *The Foreman*, QUEUE.md Phase 23, DECISIONS D-M14/M15/M33/M57, `src/foreman/`, `scripts/aether-run.sh`, `scripts/foreman-agent.ts`, `.claude/agents/*`), the `second-brain` repo (empty), and this repo (Lockdown).
-
----
-
-## 0. What you asked for, in your words, restructured
-
-1. **A front / an OS** that communicates with the Claude CLI, Codex, ChatGPT etc. and gets stuff done.
-2. **Number 1 priority: a centre for CLI workflows** — Claude communicating with Codex etc., delegating among a team of spun-up CLI agents. The work itself may happen in the desktop app or a terminal; the OS must **show what is going on**.
-3. The CLIs must be able to **set up workflows when prompted**, or understand how to.
-4. It must also be a centre for **UI design and 3D game machinery**.
-5. **Number 2: one context bank / second brain** that everything writes into, which the CLIs read from (and, per your first paragraph, edit). Not only for building things: the CLIs cooperate on personal projects — maths mastery, scheduling.
-6. You have **Freebuff**, **Codex** and your plan subscriptions. Work must run **in the cloud and locally**, be **controlled from the OS**, and you can **see visually what workflow is happening**.
-7. CLIs such as Claude Code must be **contactable through the OS**, set up a workflow, and **report everything back** to the OS for display.
-8. **No API anywhere.** Everything runs on the subscriptions you already pay for (CLI logins), not on API keys.
-9. Don't over-architect. Grounded in certainty of success.
+**Draft 2 · 17 September 2026 · for back-and-forth, nothing decided.**
+Draft 1 proposed finishing Aether's Foreman. Calvin ruled that out: *this is its own OS, separate from Aether, and it is about communication with the CLIs only.* This draft is built on that ruling.
 
 ---
 
-## 1. Honest assessment first
+## 0. Context Calvin has given (the brief, in his words, restructured)
 
-**Rating of the idea as stated: 7/10.** The goal is right and the constraints (no API, subscriptions only, git-visible) are the *correct* constraints — they are what make it cheap and reliable. The two points off are for a real risk: **most of item 2 already exists**, and building "a front" from scratch would be building it twice.
+**First message**
+- A front / an OS that communicates with the Claude CLI, Codex, ChatGPT etc. and gets stuff done.
+- **Number 1:** a centre for CLI workflows — Claude communicating with Codex etc., delegating among a team of spun-up CLI agents. The work may happen in the desktop app or a terminal; the OS must **show what is going on**.
+- The CLIs must be able to **set up workflows when prompted**, or understand how to.
+- A centre for **UI design and 3D game machinery** too.
+- **Number 2:** one context bank / second brain that everything writes into and the CLIs read from and edit. Not only for building things: the CLIs cooperate on personal projects — maths mastery, scheduling.
+- Has **Freebuff**, **Codex**, and plan subscriptions. Work must run **in the cloud and locally**, be **controlled from the OS**, with the workflow **visible**.
+- CLIs such as Claude Code must be **contactable through the OS**, set up a workflow, and **report everything back** for display.
+- **No API anywhere.** Subscriptions only.
+- Don't over-architect. Grounded in certainty of success.
 
-**The finding that changes the plan:** `aether-os` already contains the orchestration centre. It is called the **Foreman** (built 12–14 Sep, `src/foreman/`, `server/foreman.ts`, `foreman.html`). Measured from the tree, not from memory:
+**Second message (answers to draft 1's questions)**
+- Codex is installed on the Mac.
+- Freebuff is a free coding tool.
+- The CLIs **read and write** the second brain.
+- The OS is **standalone**: separate from Aether, and **not the Foreman**. Something can be written into Aether later, but the OS is its own thing: one place to build and organise across multiple CLIs.
+- The second brain gets its **own home** (the `second-brain` repo).
+- The **Mac is on all day** except while he sleeps.
 
-| You asked for | Exists today in the Foreman | Gap |
-|---|---|---|
-| A console that contacts Claude Code and starts work | `npm run foreman:dispatch` starts `scripts/aether-run.sh <lane> 1 [unit]`, which runs `claude -p "/aether-run …" --permission-mode bypassPermissions`. Logged-in CLI, no API key (`env -u` strips the six `ANTHROPIC_*` routing vars). | First live run built nothing: expired `claude` login (D-M19). No one-command start (Q23.17). |
-| Claude delegating to a team | The **main agent** (Q23.3, ◐): one Claude Code session takes a goal, `commission`s units with done-criteria, `request`s workers and reviews. It cannot build, rule, claim or close (nine refusals in `scripts/foreman-agent.ts`). Five review personas in `.claude/agents/` (builder, cold-reviewer, risk-assessor, architect, designer). | ◐ on two of its own ⛔s (Q23.13 classifier hole, Q23.14 token readable). |
-| Codex / other CLIs in the team | **Decided 13 Sep (D-M33):** Codex, Gemini, Cursor's agent and Freebuff join **as reviewers first**, one shared slot, promoted to building only by you. Adapter interface exists (`src/foreman/adapters/types.ts`); Cursor and freebuff are `notWired`. | **Parked (Q23.9, D-M57):** none of the four CLIs is installed or signed in on any machine a worker has run on. The row forbids guessing a command line; it must come from the real `--help`. **This is the single biggest blocker and it is a 20-minute job on your Mac.** |
-| Show what is going on | Console at `http://127.0.0.1:5174/foreman.html`: lanes, dispatch, work, ledger, review verdicts (`docs/reviews/<unit>-<pass>.md`), tree stamp. Runs and goals live in a local store, `.aether/foreman.sqlite` (tables `runs`, `goals`, `dispatcher`); the page polls `/api/foreman/dispatch` every 5 s and a run's log every 4 s. Dead workers detected at read time (Q23.6). | Console **cannot write** — no form to rule/commission/park/set a goal; POST only (Q23.12). No usage display (Q23.18). |
-| Cloud + local | Local Mac lanes (`aether-run.sh`, capped per lane). Cloud lanes = five Claude Code Remote routines on a cron, toggled by the `lanes` skill. | Console observes cloud lanes, cannot steer them (Q23.19). |
-| Everything reports back | Git is the bus: `CLAIMS.md`, `state/<lane>.md`, `docs/QUEUE.md`, `docs/reviews/`, `DECISIONS.md`; console reads them **out of `origin/main`** via `git show`. | Works. This is the pattern the second brain should copy. |
-| UI design / 3D | `designer` agent, Higgsfield adapter, `threejs-devtools-mcp` and `unreal-mcp` in `.mcp.json`, `design-taste-frontend` / `image-to-code` skills. | Nothing needed for this plan. |
-| Second brain | **Does not exist as a shared store.** `second-brain` repo is empty. Aether's knowledge lives in SQLite (`knowledge_objects`, `inbox_items`, conversations) which a CLI cannot read without the server. The five pillars are markdown, but they describe Aether, not you. | **The whole of item 5 is new work.** |
-
-**So the honest shape of the plan is:** (a) unblock and finish the Foreman (four queue rows, one of which is you signing in to Codex); (b) create the second brain as a git repo of markdown that every CLI reads and writes; (c) make Aether show the Foreman's state read-only. Not a new "front".
-
-**What I am uncertain about** (stated rather than guessed): what **Freebuff** is — I could not find it as a public CLI, and the aether-os tree only knows it as a binary name `freebuff` that has never been on PATH. See Q1 in §10.
-
----
-
-## 2. Principles this plan holds to
-
-1. **No API keys.** Every agent is a CLI logged into a subscription: `claude` (Max), `codex` (ChatGPT), `gemini` (Google). A tool that cannot be driven headless from a login is not in the team. (Aether's *product* chat still uses API keys on the VPS. That is separate and unchanged; it is not orchestration.)
-2. **Git and markdown are the bus.** No message queue, no sockets between agents. An agent's instruction is a file it reads; its report is a file it commits. Every CLI can do that; the Foreman already reads that way. Anything visible in the OS is read *out of a commit*.
-3. **One writer per file, append-only where two can collide** (`CLAIMS.md` pattern). This is what makes five concurrent workers safe without a server.
-4. **Nothing duplicated.** No second queue, no second review format, no second conversation store. Extend the Foreman; don't build beside it.
-5. **Each step is one session's work with a done-criterion a stranger can check.** That is the constitution's rule and it is also why this plan is "grounded in certainty": every step is small and measurable.
+**Facts measured from the repos** (for grounding, not as the plan): Aether's Foreman (`aether-os/src/foreman/`) already drives `claude -p` workers, reads state out of git, stores runs in a local SQLite and polls it from a page — it is Aether-specific and stays Aether's. `calvindean49-ai/second-brain` is an empty repo. Aether's own knowledge lives in SQLite a CLI cannot read; its `pinned_memories` table is constrained so a model cannot write a mastery claim.
 
 ---
 
-## 3. Target shape
+## 1. What this is, in one paragraph
 
-```
-                 ┌───────────────────────────────────────────┐
-                 │  second-brain (git repo, markdown)         │
-                 │  the ONE context bank                      │
-                 │  AGENTS.md ← CLAUDE.md, GEMINI.md point here│
-                 │  projects/  learning/maths/  schedule/     │
-                 │  workflows/  inbox/  decisions/            │
-                 └──────▲───────────────▲──────────────▲──────┘
-          read + write  │               │              │ read (git show)
-                        │               │              │
-   ┌────────────┐  ┌────┴─────┐   ┌─────┴────┐   ┌─────┴───────────────────┐
-   │ claude CLI │  │ codex CLI│   │gemini CLI│   │ Foreman (aether-os)      │
-   │ local+cloud│  │ local    │   │ local    │   │ console + dispatcher     │
-   └─────▲──────┘  └────▲─────┘   └────▲─────┘   │ starts workers, reads    │
-         │              │              │         │ CLAIMS/QUEUE/reviews     │
-         └──────────────┴──────────────┘         └──────▲───────────────────┘
-                 started by dispatcher                  │ read-only
-                 (one command line per tool,            │
-                  measured from its --help)      ┌──────┴────────┐
-                                                 │ Aether OS     │
-                                                 │ "glance" panel│
-                                                 └───────────────┘
-```
+A small local system on the Mac with three parts. **The Brain** is a git repo of markdown that every CLI reads as its context and writes its results into. **The Runner** is a tiny local service that starts a CLI (`claude`, `codex`, `gemini`, Freebuff if it has a terminal mode) in a chosen repo with a chosen brief, keeps its log, and records how it ended. **The Desk** is a web page on `127.0.0.1` that shows the Brain, the runs, and the workflows, and is where you type a brief. No API keys: every tool is a logged-in CLI on your subscription. Cloud work is Claude Code on the web, started *by a local Claude session* (the only route to it without an API), working on a clone of the Brain and pushing back. Agents never talk to each other directly; they read and write the same files, and git is the bus.
 
-- **Foreman** = the orchestration centre (item 2). Separate from Aether by your own 12 Sep decision.
-- **second-brain** = the context bank (item 5). A repo, not a database, so a CLI reads it with `cat` and writes it with `git commit`.
-- **Aether** = where you *see* it (item 7). Read-only view of the same files and the dispatcher's run store.
+## 2. Honest assessment
 
----
+**Rating, as now scoped: 7/10.** Standalone is the right call *because* the Foreman is welded to Aether's constitution, five-lane queue and 535-row backlog, none of which a maths plan or a scheduling workflow needs. The two points off are one real risk each:
 
-## 4. The second brain (context bank)
+1. **The Runner is where over-architecture will try to creep in.** The Foreman's dispatcher took three days and had four cold-review defects (dead workers reading as running, pid reuse, a stalled wake-up, an unreachable verb). Every one of those came from concurrency and caps. **So v1 has no caps, no lanes, no claims: one run at a time per tool, started by you or by a workflow step, and that is the whole scheduler.** Concurrency is a later decision, taken from measured need.
+2. **"The CLIs set up workflows" is only certain if a workflow is a file.** Any engine that interprets workflows is a second thing that can disagree with what the agent actually did. In v1 a workflow is a markdown file with a fixed shape; the Runner only ever runs *one step* (one tool, one brief); the agent reading the file does the sequencing and reports each step into the Brain. That is certain to work on day one with zero code, and it is how Aether's lanes already work.
 
-### 4.1 Why a git repo of markdown, not a database or Aether's SQLite
+**What I would copy from the Foreman, as patterns, not code:** read state out of a commit (`git show`), append-only files where two writers can collide, a run store separate from the content repo, dead-run detection by pid plus process-start time, a stop file as the kill switch, and the adapter shape *detect / command / interpret* with the command line taken from the real tool's `--help` and never guessed.
 
-- Claude Code, Codex and Gemini CLI all read a project instruction file at the repo root (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`). Codex reads `AGENTS.md` natively. That is the "all CLIs share the same context" mechanism, with zero glue.
-- Cloud sessions (Claude Code on the web, Codex cloud) start from a git checkout. A repo is the only store both a local and a cloud session can reach without an API.
-- The Foreman already proves the reading pattern (`git show origin/main:<path>`, memoised per commit).
-- Aether's SQLite cannot be read by a CLI without the server up, and writing it from an agent violates "never write the real database".
+**Uncertain, stated rather than guessed:** whether Freebuff has a headless terminal mode and a login (Q1 below). Whether Codex cloud tasks can be started from a terminal on a ChatGPT plan without an API (unmeasured; Claude is the cloud path until it is).
 
-### 4.2 Proposed layout (small on purpose)
+## 3. Principles
+
+1. **No API keys.** A tool is in the team only if it runs headless from a subscription login.
+2. **Git and markdown are the bus.** An agent's instruction is a file it reads; its report is a file it commits.
+3. **Brain and code are separate repos.** A CLI session opened in the Brain sees only your context, never the OS's source or tokens.
+4. **The Runner is the only thing that spawns a process.** The web page never does.
+5. **Every step is one session's work with a done-criterion a stranger can check.**
+
+## 4. The Brain (`calvindean49-ai/second-brain`)
+
+### 4.1 Layout
 
 ```
 second-brain/
-  AGENTS.md            ← the single instruction file. What this repo is, how to read it,
-                          how to write to it, where a workflow lives. Canonical.
-  CLAUDE.md            ← one line: "@AGENTS.md" (Claude Code imports it)
-  GEMINI.md            ← same, for Gemini CLI
-  INDEX.md             ← one screen: current projects, current focus, links. Rewritten in place.
-  projects/<name>.md   ← one file per project: goal, state, next, links to repo/branch
-  learning/maths/…     ← mastery map, what is proven vs practised, next probes
-  schedule/            ← week plan, commitments, recurring routines (markdown tables)
-  workflows/<name>.md  ← a workflow spec a CLI can execute (see 4.4)
-  inbox/               ← raw captures, triaged into the above
-  decisions/log.md     ← append-only, dated, same shape as aether-os DECISIONS.md but tiny
-  runs/                ← what agents did: one short file per run (who, when, what changed)
+  AGENTS.md            the single instruction file (Codex reads it natively).
+                       What this repo is, how to read it, how to write it,
+                       what a workflow file looks like, how to report a run.
+  CLAUDE.md            "@AGENTS.md"  (Claude Code imports it)
+  GEMINI.md            same, for Gemini CLI
+  INDEX.md             one screen: current focus, projects, next actions. Replaced in place.
+  projects/<name>.md   goal · state · next · repo/branch links   (aether-os, lockdown, …)
+  learning/maths/      mastery map, what is proven vs practised, next probes
+  schedule/            week plan, commitments, routines (markdown tables)
+  workflows/<name>.md  a workflow a CLI can execute (§4.3)
+  inbox/               raw captures; triaged into the above
+  decisions/log.md     append-only, dated
+  runs/YYYY-MM/<id>.md what an agent did: tool, brief, files touched, outcome, next
 ```
 
-### 4.3 Write rules (the whole "constitution" of this repo, kept to five lines)
+### 4.2 Write rules (the whole rulebook; five lines, in `AGENTS.md`)
 
-1. `INDEX.md` and `projects/*` are **replaced in place**, never appended with dated layers (aether-os learned this the hard way at 3,459 lines).
-2. `decisions/log.md`, `runs/*` and `inbox/*` are **append-only**.
-3. Every agent commit message starts with the tool name and run id: `codex r-0142: …`.
+1. `INDEX.md`, `projects/*`, `learning/*`, `schedule/*` are **replaced in place**, never appended with dated layers.
+2. `decisions/`, `runs/`, `inbox/` are **append-only**.
+3. Every agent commit message starts with the tool and run id: `codex r-0142: …`.
 4. An agent never deletes a file it did not create in the same run.
-5. Aether reads this repo; it never writes it. (If you want Aether's inbox to flow here, that is a later, separate decision. Aether's own `pinned_memories` table is deliberately constrained so a model cannot write a mastery claim; the second brain must not become a way round that.)
+5. Every run ends by writing its `runs/` file and pushing. **A run that did not push did not happen.**
 
-### 4.4 "The CLIs can set up workflows when prompted"
+### 4.3 A workflow is a file
 
-A workflow is a markdown file under `workflows/` with a fixed shape — goal, trigger, steps, which tool does each step, done-criterion, where the output goes. `AGENTS.md` tells every CLI: *to set up a workflow, write one of these; to run one, follow it.* That is enough for a Claude Code or Codex session to author a workflow from a sentence you type, because the shape is in the file it already loaded. No engine needed for phase 1. The Foreman's main agent already does the "goal → units" split for code; the same session can write a `workflows/` file for non-code work.
+```markdown
+# Workflow: weekly maths probe
+trigger: Sunday evening, or "run maths probe" typed at the Desk
+context: learning/maths/map.md, schedule/week.md
+steps:
+  1. claude  — read the map, pick the three weakest proven-claims, write 3 probe questions to inbox/probe-<date>.md
+  2. me      — answer them on paper, type answers into the same file
+  3. codex   — mark against the map, update learning/maths/map.md, write runs/<id>.md
+done when: map.md has today's date on each of the three claims
+```
 
-### 4.5 What stays in Aether
+`AGENTS.md` says: *to set up a workflow, write one of these; to run one, follow its steps in order, and report each step into `runs/`.* That is the whole "CLIs can set up workflows" mechanism. A Claude or Codex session can author one from a sentence you type because the shape is in the file it already loaded.
 
-Aether's knowledge graph, learning evidence and gates are untouched. The second brain is *about you and your projects*; Aether's SQLite is *evidence of learning*. They meet only at the read-only glance (§7) and, later, if you decide it, an inbox export.
+### 4.4 Cross-CLI delegation, concretely
 
----
+You type at the Desk: *"plan the Lockdown motion spike and get it reviewed."* The Runner starts `claude` in `second-brain/` with that brief. Claude writes `workflows/lockdown-motion-spike.md` with steps for itself and for Codex, and writes its own `runs/` file. The Desk shows the new workflow. You (or a later automation) press *run step 2*: the Runner starts `codex exec` in the Lockdown repo with the step's brief and the Brain path in the prompt. Codex works, commits on a branch, writes `runs/` in the Brain, pushes. Claude never messages Codex. They share files. This is the same protocol the Foreman proved across five lanes for three weeks.
 
-## 5. The orchestration centre — finish the Foreman
+## 5. The Runner (local service on the Mac, `127.0.0.1`, token in a 0600 file)
 
-In dependency order. Each is an existing or trivially-filed queue row.
+**Does exactly this:**
 
-| Step | Row | What | Your half |
+| Action | Detail |
+|---|---|
+| `start` | `{tool, repo, brief, workflow?, step?}` → spawns the tool's command in that repo, own process group, log to `runs/<id>.log`, row in a local SQLite (`id, tool, repo, brief, state, pid, started, ended, exit, note`) |
+| `status` | runs with live/dead decided at read time (pid + process-start token) |
+| `log` | tail of a run's log |
+| `cancel` | signal the process group |
+| stop file | `.agent-os/stop` halts all new starts within one tick |
+| `pull` | `git fetch` the Brain; never pull under a running agent |
+
+**Adapters, one file each, command taken from the tool's own `--help` saved under `reports/<tool>-help.txt`:**
+
+| Tool | Local headless (to measure on the Mac) | Write access | Notes |
 |---|---|---|---|
-| 5.1 | Q23.17 | `npm run foreman:up` / `down`; probe `claude` login before the dispatcher starts; one status strip. | none |
-| 5.2 | Q23.12 | Console forms for rule / commission / park / **set a goal**. Today these are POST-only. This is what makes "contact Claude Code through the OS" true in the literal sense. | none |
-| 5.3 | Q23.9 | **Codex adapter.** Install `codex` on the Mac, sign in with ChatGPT, save `codex exec --help` under `reports/q23-9/`, write the adapter against it in **read-only sandbox** (`codex exec --sandbox read-only …`), prove a planted write leaves a scratch tree byte-identical. Reviewer only, per D-M33. Gemini follows as its own commit (`gemini -p …`). | **install + sign in to Codex and Gemini** |
-| 5.4 | Q23.19 | Console shows and switches the cloud lanes (through a session running the `lanes` skill). | none |
-| 5.5 | Q23.18 | Usage strip: what each run's CLI output reported, never an estimate. | none |
-| 5.6 | new | Point the Foreman at a **second repo**: `second-brain`. Today `readForeman` reads aether-os's own `docs/QUEUE.md`. Make the repo root a parameter so the same console can run a "personal" lane whose queue is `second-brain/workflows/`. | decision (Q5 in §10) |
+| Claude Code | `claude -p "<brief>" --output-format text` with a permission mode you choose per run | edits allowed | in use in Aether today, no key, `env -u` the `ANTHROPIC_*` routing vars |
+| Codex | `codex exec "<brief>"`, `-C <repo>`; sandbox `read-only` for review, `workspace-write` for building | per sandbox flag | reads `AGENTS.md`; ChatGPT login |
+| Gemini CLI | `gemini -p "<brief>"` | flag to measure | reads `GEMINI.md`; only if you want a third vendor |
+| Freebuff | **unknown** | unknown | needs Q1 |
 
-**Cross-CLI delegation, concretely (item 2):** you type a goal in the console → main agent (Claude) commissions units into `docs/QUEUE.md` → dispatcher starts a `claude-local` worker on a unit → worker pushes → you (or the main agent) request a review → dispatcher starts `codex exec --sandbox read-only` on a scratch copy with the cold-reviewer brief → Codex writes `docs/reviews/<unit>-codex.md` → console shows it beside Claude's passes. Claude and Codex never talk to each other directly. They read and write the same files. That is the whole protocol, and every piece of it except the Codex command line exists today.
+**Not in v1:** caps, lanes, claims, scheduling by cron, retries. One run per tool at a time. A second `start` for a busy tool is refused with the running run's id.
 
-**Not in phase 1, on purpose:** ROUTE.md asks for a persisted run/step/artifact model for Aether's own assistant work. It is unbuilt, and the Foreman's `runs` + `goals` store plus the review files already give you visibility for orchestration. I would not build it for this.
+## 6. The Desk (web page, same Mac)
 
-**Codex building, not just reviewing,** is your promotion decision (D-M33 §f), taken after you have seen its review record. I would not pre-plan it.
+Three views, all read from the Brain's last fetched commit and from the Runner's store:
 
----
+- **Brain** — `INDEX.md` rendered, projects, schedule, inbox count, last ten `runs/`.
+- **Runs** — live table from the Runner (polled every 5 s while visible), log viewer, cancel, stop file switch.
+- **Workflows** — every `workflows/*.md` with a *run step N with <tool>* button, and a brief box that starts a `claude` run with "set up a workflow for: …".
 
-## 6. Cloud and local
+Stack: React/Vite/TS front, Express/SQLite Runner — the stack you already run, so any CLI can build on it. Repo: a new one (name in Q2), **never** the Brain.
 
-| | Claude Code | Codex | Gemini |
+## 7. Cloud
+
+The only route to Claude Code on the web without an API is from inside a Claude Code session (Aether's `lanes` skill reaches routines the same way). So: the Desk's *run in cloud* starts a **local** `claude -p` run whose only job is to create the cloud session or routine against the Brain repo with the brief. The cloud session clones the Brain, works, writes `runs/`, pushes. The Desk sees it on the next fetch. Codex cloud: unmeasured; not in v1.
+
+## 8. Aether
+
+Nothing in v1. When you want it: one Aether HUD button that opens the Desk, or a read-only panel that polls the Runner's `status`. Neither writes to Aether's database. Not before v1 has run for a week.
+
+## 9. UI design and 3D
+
+The Brain gets `projects/<game>.md` and a `workflows/` file per pipeline; the Runner starts the same tools in those repos. Aether's `threejs-devtools-mcp` / `unreal-mcp` config and design skills can be copied into a game repo's `.mcp.json` / `.claude/skills` when needed. No OS feature required.
+
+## 10. Execution steps (each ≤ one session, in order)
+
+| # | Who | Step | Done when |
 |---|---|---|---|
-| Local headless | `claude -p` ✅ in use | `codex exec` (to measure) | `gemini -p` (to measure) |
-| Cloud, plan-included | Claude Code Remote routines ✅ (five lanes on cron) | Codex cloud tasks exist on ChatGPT plans, started from the Codex app/web. **Whether they can be started from a script without an API is unmeasured.** | none known |
-| Controlled from the console | local: yes; cloud: Q23.19 | local: after Q23.9 | local: after Q23.9 |
+| 1 | you | On the Mac: `codex exec --help > codex-help.txt`, `claude --help > claude-help.txt`, and for Freebuff: is there a terminal command? Paste all three outputs (or "no CLI") to me. | I have the real flags. |
+| 2 | session | Seed the Brain: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `INDEX.md`, the folders, `projects/aether-os.md` + `projects/lockdown.md` from the two READMEs, one real `workflows/` file (§4.3), one `learning/maths/map.md` skeleton. | In `second-brain/`, `claude -p "what am I working on"` and `codex exec "what am I working on"` both answer from `INDEX.md`. |
+| 3 | session | Runner v1: `start / status / log / cancel`, stop file, SQLite store, adapters for `claude` and `codex` from step 1's help output, liveness by pid + start time. | A run started with `curl` against `127.0.0.1` writes a `runs/` file into the Brain and pushes; killing the process reads `dead` within one poll. |
+| 4 | session | Desk v1: Brain, Runs, Workflows views; brief box; run-step buttons. | You type a brief in the browser, watch the run, and see its `runs/` file appear after fetch. No curl. |
+| 5 | session | Cloud: the *run in cloud* path via a local Claude session; Gemini adapter if you want it; Freebuff adapter if step 1 says it has a CLI. | A cloud session's `runs/` file appears in the Desk. |
+| 6 | you | Use it for a week on real work (the Lockdown motion spike, a maths probe). Write what hurt into `inbox/`. | Decide, from that: concurrency, cron, Aether panel. |
 
-Recommendation: cloud = Claude only for now. Codex and Gemini local, as reviewers. Revisit Codex cloud once Q23.9 lands and you can measure what `codex` offers from a terminal.
+Steps 2 and 3 are independent and can run in parallel. Step 4 waits on 3. Step 5 waits on 4.
 
----
+## 11. Open questions (fewer this time)
 
-## 7. Showing it in Aether ("see visually what workflow is happening")
+1. **Freebuff:** does it have a terminal command you can run with a prompt (like `codex exec`)? If it is app-only, it stays a tool *you* use with the Brain open, not one the Runner starts. Please paste `which freebuff` or the name of the app.
+2. **OS repo name:** new repo `agent-os`? Or reuse `Personal-OS` / `Jarvis-os` if either is effectively empty? (I have not read them.)
+3. **Gemini:** in the team or not? It costs one adapter; leave it out unless you have a Google plan you want to use.
+4. **Permission mode for Claude runs:** `acceptEdits` (edits yes, shell asks — but nobody is there to answer, so it fails safe) or `bypassPermissions` (Aether uses this for lane workers, in a worktree). I recommend bypass **only** on a branch, never on main, and the adapter enforces that.
+5. **Stack:** React/Vite/TS + Express/SQLite as above, matching aether-os — yes?
 
-Three options, in order of cost:
+## 12. Persona pass (aether-os review personas as lenses)
 
-- **A. Link.** Aether's HUD gets a "Foreman" button that opens the console. Zero risk, ten minutes, and it honours your 12 Sep "separate from Aether" decision exactly.
-- **B. Read-only glance panel (recommended).** A small Aether panel that renders the dispatcher's run view (running / ended / lost, per lane and tool) and the last five review verdicts. The data already exists behind `GET /api/foreman/dispatch` and `GET /api/foreman/reading`; the panel polls them the way the console does. No writes from Aether. The `verify:foreman` wall (product must not import `src/foreman/`) means Aether *fetches* from the Foreman server, never imports it; and the Foreman's token must not reach the product page, so this needs one read-only, token-less route on `127.0.0.1` or a proxy rule. That is the one real design point in this option.
-- **C. Foreman inside Aether.** Reverses your 12 Sep decision. I would not.
-
-Ask: do you want B (see Q3)?
-
----
-
-## 8. Personal projects (maths mastery, scheduling) on the same rails
-
-Phase 1 needs nothing special: a `claude` or `codex` session opened in `second-brain/` already has your maths map and schedule in context via `AGENTS.md`, and writes back to `learning/` and `schedule/`. Delegation for non-code work is a `workflows/` file plus, once 5.6 exists, the dispatcher running a "personal" lane. Scheduling stays in Aether's own calendar (your 13 Sep decision) — the second brain holds the *plan*, Aether holds the *commitments*. Whether that split is right is Q6.
-
----
-
-## 9. First execution steps (in order; each one session or less)
-
-1. **You:** on the Mac, `npm i -g @openai/codex && codex login` (ChatGPT), and install + sign in to Gemini CLI. Run `codex exec --help` and `gemini --help` and commit the output under `aether-os/reports/q23-9/`. **This unparks Q23.9 and is the only thing on the critical path that is yours.**
-2. **Session:** create `second-brain` contents per §4.2 — `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `INDEX.md`, empty dirs with a `README` line each, one real `projects/aether-os.md` and one real `projects/lockdown.md` seeded from the two repos' READMEs. Done when: `claude -p "what am I working on"` run inside the repo answers from `INDEX.md`, and the same for `codex exec`.
-3. **Session:** Q23.17 (`foreman:up`). Done when one command starts all three processes and refuses with the sign-in command when `claude` is logged out.
-4. **Session:** Q23.9 Codex adapter, reviewer-only. Done criterion is already written in the row.
-5. **Session:** Q23.12 console write forms, including *set a goal*. Done when you can type a goal in the browser and watch the main agent commission units and the dispatcher start a worker, with no curl.
-6. **Session:** §7 option B glance panel in Aether.
-7. **Then decide** (not before): Foreman on a second repo (5.6), Codex promotion to builder, Codex cloud.
-
-Steps 2 and 3 are independent and can run in parallel lanes. Step 4 waits on step 1. Step 5 waits on nothing but is worth less than 4 (a goal you can type is not worth much until the team it dispatches to exists).
-
----
-
-## 10. Open questions — answer these and I redraft
-
-1. **What is Freebuff?** A CLI coding agent, a cloud service, something else? Does it have a headless command and a login? The aether-os tree only knows the binary name and has never seen it installed. If it has no terminal mode, it cannot be in the dispatcher's team under the no-API rule, and I would drop it from phase 1.
-2. **"Where the CLIs read from only"** — did you mean the CLIs *only read* the second brain (something else writes it), or that it is *the only place* they read context from, and they also write back? Your first paragraph says "read from and edit to". I have assumed read **and** write with the rules in §4.3.
-3. **Visibility:** is the Foreman console itself enough as "the OS shows what is going on", or do you want a read-only panel inside Aether (§7 option B)?
-4. **Second brain home:** the empty `calvindean49-ai/second-brain` repo — use it, or do you want it inside aether-os? (I recommend the separate repo: it must be cloneable by a Codex session that should never see Aether's tokens.)
-5. **Personal lane:** do you want the Foreman to dispatch non-code work (maths, scheduling) in phase 1, or is "a CLI session with the second brain loaded" enough to start? I recommend the latter; 5.6 is the first thing I would cut.
-6. **Scheduling boundary:** keep commitments in Aether's calendar (13 Sep) and only the plan in the second brain, or move scheduling wholesale into the second brain?
-7. **Mac availability:** the Foreman, local lanes, and Codex all run on the Mac. Roughly how many hours a day is it on and logged in? That decides how much should be pushed to cloud lanes.
-8. **Priority between the two halves:** if you only get one this week, Foreman unblocked (steps 1, 3, 4) or second brain seeded (step 2)?
-
----
-
-## 11. Persona pass (the aether-os review personas, applied to this plan)
-
-- **cold-reviewer:** *Which claims are unsupported?* The Codex and Gemini command lines in §5.3/§6 are from public docs, not from a measured `--help` on your machine — the plan treats them as hypotheses, which is exactly what Q23.9's clause (a) demands. Codex cloud controllability is marked unmeasured. The claim "Codex reads `AGENTS.md` natively" is from its documentation and should be confirmed in step 2's done-criterion (it is).
-- **risk-assessor:** *Any gate reached?* No. Nothing in this plan touches an evidence threshold, the automation rule or asset levels. The second brain is outside Aether's learning system by construction (§4.5). The one line to watch: Aether must never *write* the second brain from an automated path, or it becomes a second channel for self-report reaching the graph.
-- **architect:** *Owning pillar?* Everything in §5 is ARCHITECTURE → *The Foreman*; §7 option B adds one Foreman route and one Aether panel, owned by ARCHITECTURE and WORLD respectively. The second brain has no pillar because it is not Aether — its `AGENTS.md` is its own single owner. This document should move to `aether-os/docs/proposals/` or the second-brain repo once you say which; it sits in the Lockdown repo only because that is this session's branch.
-- **designer:** nothing visual to judge until §7 B; the glance panel inherits the HUD register.
+- **cold-reviewer:** every command line in §5 is a hypothesis until step 1's help output exists; the doc says so. The claim that Codex reads `AGENTS.md` natively is from OpenAI's docs and is checked by step 2's done-criterion. "Codex cloud without API" is marked unmeasured, not assumed.
+- **risk-assessor:** the plan reaches no Aether gate and writes no Aether database. The one line to hold: **Aether never writes the Brain from an automated path**, so the Brain cannot become a route for self-report into Aether's learning evidence. The Runner's bypass-permissions mode is the sharpest edge; §11 Q4 confines it to branches.
+- **architect:** the Brain's single owner is `AGENTS.md`; the OS's is its own README. This document should move to the OS repo's `docs/` once Q2 is answered; it lives in the Lockdown repo only because that is this session's branch.
+- **designer:** no visual claim until step 4; the Desk can borrow Aether's dark register or not, your call, and it does not matter for v1.
 
 ## Council notes
 
-- The draft and the challenge disagreed on *build a front* vs *finish the Foreman*; the challenge won on measurement (the table in §1). If you disagree with the 12 Sep "separate from Aether" decision, §7 changes and I need to know.
-- Genuinely uncertain: Freebuff's nature, Codex cloud without an API, and how much of the Max allowance a Codex reviewer saves versus a second Claude pass (it spends ChatGPT quota instead, which is the point, but that quota is unmeasured).
-- Assumption to check: that you want Codex as a *reviewer first* still holds (D-M33, four days old). If you now want it building from day one, step 4's done-criterion changes and the risk goes up.
+- The passes disagreed on whether to extract the Foreman's dispatcher into a shared package versus copy its patterns into a ~300-line Runner. Copy won: extraction would couple the OS to Aether's verify chain, which is the opposite of standalone.
+- Genuinely uncertain: Freebuff's headless mode; Codex cloud; whether one-run-per-tool is enough throughput for you (it is enough to learn from, which is v1's job).
+- Assumption to check: that "communication to the CLIs only" means the OS never needs to *host* builds or render 3D — it starts tools in other repos and shows results. If you want previews of a game build inside the Desk, that is a v2 feature and a different size of project.
