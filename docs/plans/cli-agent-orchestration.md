@@ -1,6 +1,8 @@
 # Agent OS — a standalone centre for CLI agents and one second brain
 
 **Draft 2 · 17 September 2026 · for back-and-forth, nothing decided.**
+
+> **18 Sep:** the start of the system is built and pushed to `calvindean49-ai/agent-os` (Runner, Desk, Brain template, 27 tests). This document now lives there as `docs/PLAN.md`; the handover for finishing it is that repo's `AGENTS.md`. This copy is kept for the record and is no longer updated.
 Draft 1 proposed finishing Aether's Foreman. Calvin ruled that out: *this is its own OS, separate from Aether, and it is about communication with the CLIs only.* This draft is built on that ruling.
 
 ---
