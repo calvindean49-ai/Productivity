@@ -87,7 +87,7 @@ Each phase changes only **what the interleaved sets are pointed at**. The engine
 Everything aimed at week 5. Tier 1 + Tier 2; skip Tier 3 entirely. The three Layer 0 sessions this week
 *are* the revision — they find the gaps, week 4 closes them. Cut the Saturday proof set and schema map to
 17 Oct; it's the only element that doesn't serve week 5.
-→ *Detail for the next 13 days is in §6.*
+→ *Detail for the next 13 days is in §8.*
 
 **Phase B — Build. 10 Oct → 21 Dec.**
 The longest working stretch. Interleaved sets split between FM/Maths consolidation and TMUA Paper 1.
@@ -139,7 +139,41 @@ you later. **Put all nine on "Calendar" as all-day events with the threshold in 
 
 ---
 
-## 5. The three things still unaddressed
+## 5. The destination — what August 2027 should look like
+
+Eleven months does not produce expertise in the usual sense; expert pattern libraries run to 10⁴–10⁵
+domain-specific chunks over something like a decade. The reachable destination is **undergraduate-ready:
+the first year of a good maths degree is a continuation rather than a shock.** Six claims, each checkable,
+so the goal isn't a feeling:
+
+| Claim | Test |
+|---|---|
+| Proof is a native mode, not a translation | Write a correct, complete proof of an unfamiliar result without reaching for a template |
+| Rigour is internalised | You spot your own hidden assumptions before anyone else does — the §3 cyclic-quadrilateral failure does not recur |
+| Abstraction doesn't repel you | Follow a definition–theorem–proof text at roughly a page every twenty minutes |
+| Real first contact with undergraduate mathematics | One rigorous analysis text and one algebra text worked through, with the exercises |
+| Tolerance for not knowing | Time-to-first-abandonment on an unfamiliar problem measured in hours, not minutes |
+| Taste has started | The conjecture book holds entries you generated, not prompts you were given |
+
+Not on that list: a BMO medal, a TMUA 9, an olympiad ranking. Those are instruments. Phase F is where
+most of this gets built.
+
+## 6. Two rules for when it goes wrong
+
+Decided now, in the cold, because these are the two failures most likely to happen and least likely to be
+handled well in the moment.
+
+**If the log dies.** Two consecutive weeks with no entries means it is not restarted — it is **cut to one
+field, `next retest`, and nothing else.** A one-field log that runs beats an eight-field log that doesn't.
+This is the predicted failure, not a hypothetical: systems of that weight have a poor survival rate.
+
+**Results day, ~19 August 2027.** Written now because it won't be writable then. A missed grade is
+unlikely to be Maths. If it's **Chemistry or Physics**, you had a grade of buffer, so the offer probably
+survives — check the exact conditions before panicking. If it's **Further Maths**, both routes are hit and
+adjustment is the path. **Have the adjustment list drafted in July** (Gate 9) — thirty minutes then, worth
+an enormous amount on the day.
+
+## 7. The three things still unaddressed
 
 These are not work — they're 40 minutes total, and they're the difference between "I did everything I
 could" and "I lost it for a reason I could have seen".
@@ -154,7 +188,7 @@ could" and "I lost it for a reason I could have seen".
 
 ---
 
-## 6. The next thirteen days
+## 8. The next thirteen days
 
 | When | What |
 |---|---|
