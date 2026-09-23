@@ -58,7 +58,19 @@ construct a case where dropping it breaks the result.
 - [ ] Book January TMUA once booking opens 26 Oct
 - [ ] Write down, before results: which attribute do you predict is currently weakest?
 
-## Evidence log — current tier and recent cold results
+## Open gaps
+
+One line per gap found by a cold diagnostic or paper. A gap leaves this table only after **two cold
+successes** — at 10–14 days, then 4–6 weeks (Coaching Document §4). Ranked by: likely on the next
+assessment × how far from solid.
+
+| # | Gap | Error type | Exact failed step | Found | Retest due | State |
+|---|---|---|---|---|---|---|
+| — | *none yet — first entries come from the Further Pure diagnostic* | | | | | |
+
+**Calibration:** *not yet measured — predicted vs actual goes here after the first marked paper.*
+
+## Evidence log
 
 **Tier hit last week:** not yet recorded — start this week.
 **Cold results since 22 Sept:** none yet. The whole plan is running on estimates until Sunday.
